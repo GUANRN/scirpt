@@ -313,29 +313,29 @@ for (csv in mycsvfile) {
 }
 
 # 3.STRINGdb -----------------------------------------------------------------------
-# Load necessary libraries
-library(tidyverse)
-library(clusterProfiler)
-library(org.Mm.eg.db)
-library(bioconductor)
-library(STRINGdb)
-library(igraph)
-library(ggraph)
+# Load required libraries
+library(tidyverse)          
+library(clusterProfiler) 
+library(org.Mm.eg.db)      
+library(bioconductor)       
+library(STRINGdb)          
+library(igraph)             
+library(ggraph)             
+require(STRINGdb)           
 
 # Create a STRINGdb object
-string_db <- STRINGdb$new(version = "11", species = 9606, score_threshold = 400, 
-                          input_directory = "")
+string_db <- STRINGdb$new(version = "11", species = 9606, score_threshold = 400, input_directory = "")
 
-# Read data from CSV file
-df001 <- read.csv("placental-gene.csv", header = TRUE)
+# Read the placental gene list
+df001 <- read.csv("placental_gene_list", header = TRUE)
 
-# Map gene IDs to the STRING database
+# Map gene IDs to the STRING database and remove unmapped rows
 data_mapped <- string_db$map(df001, "SYMBOL", removeUnmappedRows = TRUE)
 
-# Display the number of IDs mapped
-cat("Total String id mapped:", dim(data_mapped)[1], "\n")
+# Output the number of mapped IDs
+cat("Total String id mapped :", dim(data_mapped)[1])
 
-# Set plot parameters
+# Set plotting parameters
 options(SweaveHooks = list(fig = function() par(mar = c(2.1, 0.1, 4.1, 2.1))))
 
 # Select a subset of results for plotting
@@ -344,23 +344,24 @@ hits <- data_mapped
 # Plot the network
 string_db$plot_network(hits, required_score = 400)
 
-# Export all results to a file for network analysis with Cytoscape
+# Write all results to a file for subsequent network analysis
 info <- data_mapped$STRING_id %>% string_db$get_interactions()
 write.table(info, file = "STRING_info.txt", sep = "\t", row.names = FALSE, quote = FALSE)
 
-# Convert STRING IDs to Symbols and select relevant columns
+# Convert STRING IDs to Symbols and select only the first two columns and the last column
 links <- info %>%
-  mutate(from = data_mapped[match(from, data_mapped$STRING_id), "SYMBOL"]) %>%
-  mutate(to = data_mapped[match(to, data_mapped$STRING_id), "SYMBOL"]) %>%
-  dplyr::select(from, to, last_col()) %>%
+  mutate(from = data_mapped[match(from, data_mapped$STRING_id), "SYMBOL"]) %>% 
+  mutate(to = data_mapped[match(to, data_mapped$STRING_id), "SYMBOL"]) %>%  
+  dplyr::select(from, to, last_col()) %>% 
   dplyr::rename(weight = combined_score)
 
-# Remove isolated interaction relationships
-links_2 <- links %>%
+# Remove isolated interaction pairs
+# If a link in the links dataframe has from and to occurring only once each, remove it
+links_2 <- links %>% 
   mutate(from_c = count(., from)$n[match(from, count(., from)$from)]) %>%
   mutate(to_c = count(., to)$n[match(to, count(., to)$to)]) %>%
   filter(!(from_c == 1 & to_c == 1)) %>%
   dplyr::select(1, 2, 3)
 
-# Write the filtered links to a file
-write.table(links_2, file = "links_2.txt", sep = "\t", row.names = FALSE, quote = FALSE)
+# Write the filtered interaction pairs to a file
+write.table(links_2, file = "filename", sep = "\t", row.names = FALSE, quote = FALSE)
